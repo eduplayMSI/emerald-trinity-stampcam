@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0B3D2E">
 <title>Emerald Trinity — Câmera Institucional</title>
+<link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
-<link rel="manifest" href="./manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
@@ -38,9 +38,9 @@ header h1{font-size:1.05rem;margin:0;font-weight:650;letter-spacing:.02em;
 header .btn{pointer-events:auto;background:rgba(0,0,0,.35)}
 
 main{position:fixed;inset:0}
-.stage{position:absolute;inset:0;background:#000;overflow:hidden}
+.stage{position:absolute;inset:0;background:#000;overflow:hidden;touch-action:none;}
 .stage video{position:absolute;inset:0;width:100%;height:100%;
-  object-fit:cover;display:block;background:#000}
+  object-fit:cover;display:block;background:#000;transition:transform .1s ease-out}
 
 .live-logo{position:absolute;top:calc(env(safe-area-inset-top,0px) + 3.4rem);
   right:1rem;max-width:var(--logo-size,22vw);max-height:14vh;object-fit:contain;
@@ -80,7 +80,7 @@ main{position:fixed;inset:0}
 .status{position:absolute;top:calc(env(safe-area-inset-top,0px) + 3.4rem);
   left:1rem;background:rgba(0,0,0,.55);color:#fff;
   padding:.3rem .7rem;border-radius:999px;font-size:.75rem;
-  backdrop-filter:blur(6px);z-index:4}
+  backdrop-filter:blur(6px);z-index:4;pointer-events:none}
 
 .controls{position:absolute;left:0;right:0;
   bottom:max(1rem,env(safe-area-inset-bottom));
@@ -102,6 +102,81 @@ main{position:fixed;inset:0}
 .video-btn span{background:#ff4444}
 .video-btn.recording span{border-radius:6px;width:28px;height:28px;background:#fff}
 
+/* Novos controles de câmera */
+.camera-controls-top {
+  position: absolute;
+  top: calc(env(safe-area-inset-top,0px) + 3.4rem);
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  z-index: 6;
+}
+.cam-select {
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.2);
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  font-size: .8rem;
+  max-width: 150px;
+  backdrop-filter: blur(4px);
+}
+.filter-select {
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.2);
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  font-size: .8rem;
+  backdrop-filter: blur(4px);
+}
+
+.zoom-slider-container {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  z-index: 6;
+  background: rgba(0,0,0,.3);
+  padding: .5rem;
+  border-radius: 20px;
+  backdrop-filter: blur(4px);
+}
+.zoom-slider {
+  writing-mode: bt-lr; /* IE/Edge */
+  -webkit-appearance: slider-vertical;
+  width: 8px;
+  height: 120px;
+  background: transparent;
+  accent-color: var(--gold);
+}
+
+.advanced-panel {
+  position: absolute;
+  bottom: 7rem;
+  left: 1rem;
+  right: 1rem;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: .8rem;
+  display: none;
+  z-index: 7;
+  color: #fff;
+  font-size: .8rem;
+}
+.advanced-panel.open { display: block; }
+.advanced-panel .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem;}
+.advanced-panel input[type=range] { width: 60%; accent-color: var(--gold); }
+
+/* Restante do CSS inalterado */
 .review{position:fixed;inset:0;background:#000;display:none;
   flex-direction:column;z-index:40}
 .review.open{display:flex}
@@ -163,22 +238,52 @@ input[type=color]{height:40px;padding:2px}
 </header>
 
 <main>
-  <div class="stage">
+  <div class="stage" id="stage">
     <video id="preview" autoplay playsinline muted></video>
+    
+    <!-- Controles no topo direito -->
+    <div class="camera-controls-top">
+      <select id="camera-select" class="cam-select" aria-label="Selecionar câmera"></select>
+      <select id="filter-select" class="filter-select" aria-label="Selecionar filtro">
+        <option value="none">Nenhum</option>
+        <option value="grayscale(100%)">P&B</option>
+        <option value="sepia(100%)">Sépia</option>
+        <option value="contrast(150%) saturate(150%)">Vívido</option>
+        <option value="contrast(200%)">Alto Contraste</option>
+      </select>
+    </div>
+
+    <!-- Controle de zoom vertical -->
+    <div class="zoom-slider-container" id="zoom-container">
+      <span style="font-size:0.7rem">Zoom</span>
+      <input type="range" id="zoom-slider" class="zoom-slider" min="1" max="5" step="0.1" value="1">
+      <span id="zoom-value" style="font-size:0.7rem">1.0x</span>
+    </div>
+
+    <!-- Painel de ajustes avançados (exposição/ISO) -->
+    <div id="advanced-panel" class="advanced-panel">
+      <div class="row"><label>Exposição</label><input type="range" id="exposure-slider" min="-2" max="2" step="0.1" value="0" disabled></div>
+      <div class="row"><label>ISO</label><input type="range" id="iso-slider" min="100" max="3200" step="50" value="100" disabled></div>
+      <button id="close-advanced" class="btn" style="width:100%;margin-top:0.5rem;border-radius:8px;">Fechar</button>
+    </div>
+
     <img id="live-logo" class="live-logo" alt="Logomarca institucional" hidden>
     <div id="caption" class="caption-editable" contenteditable="true"
          role="textbox" aria-multiline="true"
          aria-label="Descrição da captura"
          data-placeholder="Descrição da captura"></div>
     <div class="status" id="status">Inicializando…</div>
+    
     <div class="controls">
-      <button id="switch-cam" class="btn" aria-label="Alternar câmera" disabled>⇄</button>
+      <button id="switch-cam" class="btn" aria-label="Alternar câmera" style="display:none;">⇄</button>
+      <button id="btn-advanced" class="btn" aria-label="Ajustes avançados">⚙️</button>
       <button id="btn-photo" class="shutter" aria-label="Capturar foto" disabled><span></span></button>
       <button id="btn-video" class="shutter video-btn" aria-label="Gravar vídeo" disabled><span></span></button>
     </div>
   </div>
 </main>
 
+<!-- Painel de configurações (inalterado, mas mantido completo) -->
 <div id="settings-panel" class="panel" role="dialog" aria-label="Configurações">
   <div class="panel-inner">
     <h2>Configurações institucionais</h2>
@@ -213,7 +318,6 @@ input[type=color]{height:40px;padding:2px}
       <label for="default-caption">Texto institucional padrão</label>
       <input id="default-caption" type="text" maxlength="200" placeholder="Ex.: Associação — Evento 2026">
       
-      <!-- NOVO: Seleção de Fonte -->
       <label for="font-family">Tipo de Fonte (Google Fonts)</label>
       <select id="font-family">
         <option value="Inter">Inter</option>
@@ -224,7 +328,6 @@ input[type=color]{height:40px;padding:2px}
         <option value="Poppins">Poppins</option>
       </select>
 
-      <!-- NOVO: Tamanho da Fonte -->
       <label>Tamanho da Fonte (%) <span id="font-scale-v">100</span>%</label>
       <input id="font-scale" type="range" min="50" max="200" value="100" step="5">
 
@@ -258,6 +361,7 @@ input[type=color]{height:40px;padding:2px}
   </div>
 </div>
 
+<!-- Tela de revisão (inalterada) -->
 <div id="review" class="review">
   <button id="btn-back-review" class="btn-floating" aria-label="Voltar">←</button>
   <div class="review-img">
@@ -313,7 +417,6 @@ function loadGoogleFont(family) {
   return new Promise((resolve) => {
     const id = 'gf-' + family.replace(/\s+/g, '-').toLowerCase();
     if (document.getElementById(id)) {
-      // Já foi adicionado; apenas garante o carregamento
       document.fonts.load(`600 16px "${family}"`).then(() => resolve());
       return;
     }
@@ -321,10 +424,8 @@ function loadGoogleFont(family) {
     link.id = id;
     link.rel = 'stylesheet';
     link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;600;700&display=swap`;
-    link.onload = () => {
-      document.fonts.load(`600 16px "${family}"`).then(() => resolve());
-    };
-    link.onerror = () => resolve(); // falha silenciosa
+    link.onload = () => document.fonts.load(`600 16px "${family}"`).then(() => resolve());
+    link.onerror = () => resolve();
     document.head.appendChild(link);
   });
 }
@@ -414,6 +515,8 @@ const DEFAULTS = Object.freeze({
   stampBgColor: '#0B3D2E', stampTextColor: '#FFFFFF',
   stampOpacity: 0.85, stampMaxWidthPercent: 55,
   stampRadius: 16, includeDateTime: false,
+  cameraId: null, // Guardar a câmera preferida
+  filter: 'none', // Guardar o filtro preferido
 });
 let settings = {...DEFAULTS};
 let logoURL = null;
@@ -463,6 +566,12 @@ function applyLiveStyles() {
   root.setProperty('--logo-size', targetVw + 'vw');
   const stamp = $('#caption');
   if (stamp) stamp.hidden = !settings.stampEnabled;
+  
+  // Aplicar filtro inicial
+  const video = $('#preview');
+  if (video) video.style.filter = settings.filter === 'none' ? '' : settings.filter;
+  const filterSelect = $('#filter-select');
+  if (filterSelect) filterSelect.value = settings.filter;
 }
 function syncLiveLogo() {
   const img = $('#live-logo');
@@ -486,7 +595,13 @@ async function compose({photoBlob, w, h, captionText}) {
   const c = document.createElement('canvas');
   c.width = realW; c.height = realH;
   const ctx = c.getContext('2d');
+  
+  // Aplicar filtro ao desenhar a imagem base
+  if (settings.filter !== 'none') {
+    ctx.filter = settings.filter;
+  }
   ctx.drawImage(img, 0, 0, realW, realH);
+  ctx.filter = 'none'; // Resetar para os próximos desenhos (logo, estampa)
 
   if (settings.logoEnabled && logoURL) {
     try {
@@ -689,58 +804,224 @@ async function captureOrientedFrame(video, targetRatioStr) {
 /* ============= CAMERA ============= */
 let stream = null;
 let facing = 'environment';
+let currentDeviceId = null;
 let mediaRecorder = null;
 let recordedChunks = [];
 let videoMime = '';
 let videoAnimFrameId = null;
+let currentZoom = 1.0;
+let nativeZoomSupported = false;
+let currentTrack = null;
 
-async function startCamera() {
+async function startCamera(deviceId = null) {
   stopCamera();
   setStatus('Solicitando permissão…');
   $('#btn-photo').disabled = true;
   $('#btn-video').disabled = true;
+  
   try {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('API de câmera indisponível. Use HTTPS ou localhost.');
     }
-    stream = await navigator.mediaDevices.getUserMedia({
+
+    let constraints = {
       audio: false,
-      video: { facingMode: { ideal: facing }, width: {ideal:1920}, height: {ideal:1080} }
-    });
+      video: {
+        facingMode: { ideal: facing },
+        width: {ideal:1920}, height: {ideal:1080}
+      }
+    };
+
+    if (deviceId) {
+      constraints.video = { deviceId: { exact: deviceId }, width: {ideal:1920}, height: {ideal:1080} };
+    }
+
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
     const v = $('#preview');
     v.srcObject = stream;
     await v.play().catch(() => {});
+    
+    currentTrack = stream.getVideoTracks()[0];
+    const capabilities = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+    
+    // Verificar suporte a zoom nativo
+    if (capabilities.zoom) {
+      nativeZoomSupported = true;
+      currentZoom = capabilities.zoom.min || 1;
+      $('#zoom-slider').min = capabilities.zoom.min;
+      $('#zoom-slider').max = capabilities.zoom.max;
+      $('#zoom-slider').value = currentZoom;
+      $('#zoom-value').textContent = currentZoom.toFixed(1) + 'x';
+    } else {
+      nativeZoomSupported = false;
+      // Fallback: zoom digital via CSS (scale) na pré-visualização
+      currentZoom = 1.0;
+      v.style.transform = `scale(${currentZoom})`;
+      $('#zoom-slider').min = 1;
+      $('#zoom-slider').max = 5;
+      $('#zoom-slider').value = 1;
+      $('#zoom-value').textContent = '1.0x';
+    }
+
+    // Configurar controles de exposição/ISO se suportados
+    setupAdvancedControls(capabilities);
+
+    // Enumerar câmeras
+    await populateCameraList();
+
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cams = devices.filter(d => d.kind === 'videoinput');
     $('#switch-cam').disabled = cams.length < 2;
+    
     $('#btn-photo').disabled = false;
     $('#btn-video').disabled = false;
     setStatus('Câmera pronta');
+    
+    // Aplicar filtro salvo
+    v.style.filter = settings.filter === 'none' ? '' : settings.filter;
+
   } catch(e) {
     setStatus('Erro: ' + (e.name || ''));
     toast(cameraError(e));
+    console.error(e);
   }
 }
+
+async function populateCameraList() {
+  const select = $('#camera-select');
+  select.innerHTML = '<option value="">Câmera Padrão</option>';
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+    
+    videoDevices.forEach((device, index) => {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.textContent = device.label || `Câmera ${index + 1}`;
+      if (device.deviceId === settings.cameraId) option.selected = true;
+      select.appendChild(option);
+    });
+    
+    select.onchange = (e) => {
+      const newId = e.target.value;
+      settings.cameraId = newId;
+      startCamera(newId);
+    };
+  } catch(e) {
+    console.warn('Erro ao enumerar câmeras:', e);
+  }
+}
+
+function setupAdvancedControls(caps) {
+  const exposureSlider = $('#exposure-slider');
+  const isoSlider = $('#iso-slider');
+  
+  if (caps.exposureCompensation) {
+    exposureSlider.disabled = false;
+    exposureSlider.min = caps.exposureCompensation.min;
+    exposureSlider.max = caps.exposureCompensation.max;
+    exposureSlider.step = caps.exposureCompensation.step;
+    exposureSlider.oninput = async () => {
+      try {
+        await currentTrack.applyConstraints({ advanced: [{ exposureCompensation: parseFloat(exposureSlider.value) }] });
+      } catch (e) { console.warn('Erro ao ajustar exposição', e); }
+    };
+  } else {
+    exposureSlider.disabled = true;
+  }
+
+  if (caps.iso) {
+    isoSlider.disabled = false;
+    isoSlider.min = caps.iso.min;
+    isoSlider.max = caps.iso.max;
+    isoSlider.step = caps.iso.step;
+    isoSlider.oninput = async () => {
+      try {
+        await currentTrack.applyConstraints({ advanced: [{ iso: parseInt(isoSlider.value) }] });
+      } catch (e) { console.warn('Erro ao ajustar ISO', e); }
+    };
+  } else {
+    isoSlider.disabled = true;
+  }
+}
+
 function stopCamera() {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   const v = $('#preview'); if (v) v.srcObject = null;
   if (videoAnimFrameId) { cancelAnimationFrame(videoAnimFrameId); videoAnimFrameId = null; }
+  currentTrack = null;
 }
-async function switchCamera() {
-  facing = facing === 'environment' ? 'user' : 'environment';
-  await startCamera();
-}
+
 function cameraError(e) {
   switch(e.name) {
     case 'NotAllowedError': return 'Permissão negada. Libere o acesso nas configurações do navegador.';
     case 'NotFoundError': return 'Nenhuma câmera encontrada.';
     case 'NotReadableError': return 'Câmera ocupada por outro aplicativo.';
-    case 'OverconstrainedError': return 'A câmera não suporta a resolução solicitada.';
+    case 'OverconstrainedError': return 'A câmera não suporta a configuração solicitada.';
     default: return e.message || 'Falha ao acessar a câmera.';
   }
 }
 function setStatus(t) { $('#status').textContent = t; }
 
+/* ============= ZOOM E GESTOS ============= */
+function setupZoomGestures() {
+  const stage = $('#stage');
+  const video = $('#preview');
+  const zoomSlider = $('#zoom-slider');
+  const zoomValue = $('#zoom-value');
+  
+  let initialDistance = 0;
+  let initialZoom = 1;
+
+  stage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialDistance = Math.hypot(dx, dy);
+      initialZoom = parseFloat(zoomSlider.value);
+    }
+  }, { passive: true });
+
+  stage.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault(); // Impede o zoom da página
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const distance = Math.hypot(dx, dy);
+      
+      if (initialDistance > 0) {
+        const scale = distance / initialDistance;
+        let newZoom = initialZoom * scale;
+        
+        newZoom = Math.max(parseFloat(zoomSlider.min), Math.min(parseFloat(zoomSlider.max), newZoom));
+        
+        zoomSlider.value = newZoom;
+        applyZoom(newZoom);
+      }
+    }
+  }, { passive: false });
+
+  zoomSlider.addEventListener('input', (e) => {
+    applyZoom(parseFloat(e.target.value));
+  });
+
+  function applyZoom(val) {
+    currentZoom = val;
+    zoomValue.textContent = val.toFixed(1) + 'x';
+    
+    if (nativeZoomSupported && currentTrack) {
+      currentTrack.applyConstraints({ advanced: [{ zoom: val }] }).catch(err => {
+        console.warn('Zoom nativo falhou, usando fallback CSS', err);
+        video.style.transform = `scale(${val})`;
+      });
+    } else {
+      // Fallback: Zoom digital via CSS na pré-visualização
+      video.style.transform = `scale(${val})`;
+    }
+  }
+}
+
+/* ============= CAPTURA E GRAVAÇÃO ============= */
 async function takePhoto() {
   if (!stream) return;
   $('#btn-photo').disabled = true;
@@ -749,6 +1030,8 @@ async function takePhoto() {
     const video = $('#preview');
     const { blob, w, h } = await captureOrientedFrame(video, settings.aspectRatio);
     const captionText = ($('#caption').innerText || $('#caption').textContent || '').trim();
+    
+    // Passar o filtro para a composição
     const finalBlob = await compose({photoBlob: blob, w, h, captionText});
     showReview(finalBlob, false);
     setStatus('Câmera pronta');
@@ -805,7 +1088,23 @@ async function toggleVideoRecording() {
           dw = targetW; dh = targetW / vr; dy = (targetH - dh) / 2;
         }
         
+        // Aplicar filtro ao vídeo
+        if (settings.filter !== 'none') {
+          ctx.filter = settings.filter;
+        }
         ctx.drawImage(videoEl, dx, dy, dw, dh);
+        ctx.filter = 'none';
+
+        // Aplicar zoom à composição (se for fallback digital)
+        // Nota: O zoom nativo já está aplicado na track do vídeo.
+        // Se for fallback CSS, precisamos recortar/scalar no canvas.
+        if (!nativeZoomSupported && currentZoom > 1) {
+          // Redesenhar com zoom centralizado
+          const z = currentZoom;
+          const cropW = targetW / z;
+          const cropH = targetH / z;
+          ctx.drawImage(canvas, (targetW - cropW)/2, (targetH - cropH)/2, cropW, cropH, 0, 0, targetW, targetH);
+        }
 
         if (settings.logoEnabled && logoURL) {
           const img = new Image();
@@ -953,6 +1252,7 @@ function syncForm() {
   $('#radius-v').textContent = settings.stampRadius;
   $('#stamp-enabled').checked = !!settings.stampEnabled;
   $('#include-datetime').checked = !!settings.includeDateTime;
+  
   if (logoURL) {
     $('#logo-preview').src = logoURL;
     $('#logo-preview').hidden = false;
@@ -962,6 +1262,7 @@ function syncForm() {
     $('#logo-preview').removeAttribute('src');
     $('#remove-logo').hidden = true;
   }
+  
   syncLiveLogo();
   applyLiveStyles();
   drawPreview();
@@ -1036,9 +1337,9 @@ function previewStamp(ctx, W, H, s) {
 /* ============= BOOTSTRAP ============= */
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
-  // Carrega a fonte inicial salva
   await loadGoogleFont(settings.fontFamily || 'Inter');
   syncForm();
+  
   if (settings.defaultCaption) {
     $('#caption').textContent = settings.defaultCaption;
     $('#caption').removeAttribute('data-empty');
@@ -1046,9 +1347,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#caption').setAttribute('data-empty', 'true');
   }
 
+  // Inicializar gestos de zoom
+  setupZoomGestures();
+
+  // Bindings de Câmera
   $('#btn-photo').addEventListener('click', takePhoto);
   $('#btn-video').addEventListener('click', toggleVideoRecording);
-  $('#switch-cam').addEventListener('click', switchCamera);
+  $('#btn-advanced').addEventListener('click', () => {
+    const panel = $('#advanced-panel');
+    panel.classList.toggle('open');
+  });
+  $('#close-advanced').addEventListener('click', () => $('#advanced-panel').classList.remove('open'));
+
+  // Filtro
+  $('#filter-select').addEventListener('change', (e) => {
+    const val = e.target.value;
+    settings.filter = val;
+    const video = $('#preview');
+    video.style.filter = val === 'none' ? '' : val;
+    persist({ filter: val });
+  });
 
   const captionEl = $('#caption');
   function updateCaptionEmpty() {
@@ -1075,6 +1393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   updateCaptionEmpty();
 
+  // Bindings de Configurações
   $('#open-settings').addEventListener('click', () => {
     syncForm();
     $('#settings-panel').classList.add('open');
@@ -1122,8 +1441,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#logo-input').value = '';
     syncForm();
   });
-
-  // Ao mudar a fonte, carrega-a antes de atualizar a preview
   $('#font-family').addEventListener('change', async (e) => {
     await loadGoogleFont(e.target.value);
     drawPreview();
