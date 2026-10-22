@@ -1,7 +1,9 @@
 /* Service Worker — Emerald Trinity
-   Precache apenas do app shell real. Falhas individuais não bloqueiam a instalação. */
+   Precache do app shell + cache de fontes externas para offline. */
 
-const CACHE_NAME = 'emerald-trinity-v2';
+const CACHE_NAME = 'emerald-trinity-v3';
+const FONT_CACHE = 'emerald-trinity-fonts-v1';
+
 const APP_SHELL = [
   './',
   './index.html',
@@ -27,7 +29,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      keys.filter(k => k !== CACHE_NAME && k !== FONT_CACHE).map(k => caches.delete(k))
     )).then(() => self.clients.claim())
   );
 });
@@ -36,6 +38,25 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+
+  // Cache para Google Fonts (CSS e arquivos de fonte)
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    event.respondWith(
+      caches.open(FONT_CACHE).then(cache => {
+        return cache.match(req).then(cached => {
+          const network = fetch(req).then(res => {
+            if (res && res.status === 200) {
+              cache.put(req, res.clone()).catch(() => {});
+            }
+            return res;
+          }).catch(() => cached);
+          return cached || network;
+        });
+      })
+    );
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate') {
