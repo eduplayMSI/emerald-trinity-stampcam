@@ -967,22 +967,27 @@ async function toggleVideoRecording() {
 }
 
 /* ============= BOTÕES DE VOLUME ============= */
-window.addEventListener('keydown', (e) => {
-  // 175 = Volume Up, 174 = Volume Down
-  if (e.key === 'AudioVolumeUp' || e.keyCode === 175) {
+// Usamos capture: true para tentar interceptar o evento antes do navegador.
+document.addEventListener('keydown', (e) => {
+  const isVolUp = (e.key === 'AudioVolumeUp' || e.keyCode === 175);
+  const isVolDown = (e.key === 'AudioVolumeDown' || e.keyCode === 174);
+
+  if (isVolUp) {
     e.preventDefault();
+    e.stopPropagation();
     if (mediaRecorder && mediaRecorder.state === 'recording') {
-      toggleVideoRecording(); // Para o vídeo
+      toggleVideoRecording(); // Para a gravação
     } else {
       takePhoto(); // Tira foto
     }
-  } else if (e.key === 'AudioVolumeDown' || e.keyCode === 174) {
+  } else if (isVolDown) {
     e.preventDefault();
+    e.stopPropagation();
     if (!mediaRecorder || mediaRecorder.state !== 'recording') {
-      toggleVideoRecording(); // Inicia vídeo
+      toggleVideoRecording(); // Inicia a gravação
     }
   }
-});
+}, { capture: true });
 
 /* ============= REVISÃO ============= */
 let reviewBlob = null, reviewURL = null, isVideoReview = false;
@@ -1253,6 +1258,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#btn-back-review').addEventListener('click', closeReview);
   $('#discard').addEventListener('click', closeReview);
   $('#download').addEventListener('click', download);
+  $('#share').addEventListener('click', share);
 
   await startCamera();
 });
