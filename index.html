@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0B3D2E">
 <title>Emerald Trinity — Câmera Institucional</title>
+<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png">
 <link rel="manifest" href="./manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
 :root{
   --deep:#0B3D2E;--emerald:#1E7A5A;--gold:#C9A227;--surface:#F7FBF9;
@@ -15,6 +20,7 @@
   --stamp-radius: 14px;
   --stamp-max-width: 55vw;
   --logo-size: 22vw;
+  --stamp-font: 'Inter';
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -52,6 +58,7 @@ main{position:fixed;inset:0}
   color:var(--stamp-color,#fff);
   border-radius:var(--stamp-radius,14px);
   border:1px solid rgba(255,255,255,.35);
+  font-family:var(--stamp-font,'Inter'), system-ui, sans-serif;
   font-size:.9rem;font-weight:600;line-height:1.35;
   backdrop-filter:blur(6px);
   white-space:pre-wrap;
@@ -95,9 +102,6 @@ main{position:fixed;inset:0}
 .video-btn span{background:#ff4444}
 .video-btn.recording span{border-radius:6px;width:28px;height:28px;background:#fff}
 
-/* ========================================================= */
-/* CORREÇÃO 1: Garantir que elementos [hidden] não sejam exibidos */
-/* ========================================================= */
 .review{position:fixed;inset:0;background:#000;display:none;
   flex-direction:column;z-index:40}
 .review.open{display:flex}
@@ -105,7 +109,6 @@ main{position:fixed;inset:0}
   overflow:hidden;min-height:0;position:relative}
 #review-img, #review-video{width:100%;height:100%;object-fit:contain;
   max-width:100%;max-height:100%;display:block}
-/* A regra abaixo força o esconderijo correto quando o atributo hidden está presente */
 #review-img[hidden], #review-video[hidden] { display: none !important; }
 
 .btn-floating{position:absolute;top:1rem;left:1rem;z-index:50;
@@ -209,6 +212,22 @@ input[type=color]{height:40px;padding:2px}
       <legend>Estampa de descrição</legend>
       <label for="default-caption">Texto institucional padrão</label>
       <input id="default-caption" type="text" maxlength="200" placeholder="Ex.: Associação — Evento 2026">
+      
+      <!-- NOVO: Seleção de Fonte -->
+      <label for="font-family">Tipo de Fonte (Google Fonts)</label>
+      <select id="font-family">
+        <option value="Inter">Inter</option>
+        <option value="Roboto">Roboto</option>
+        <option value="Open Sans">Open Sans</option>
+        <option value="Montserrat">Montserrat</option>
+        <option value="Lato">Lato</option>
+        <option value="Poppins">Poppins</option>
+      </select>
+
+      <!-- NOVO: Tamanho da Fonte -->
+      <label>Tamanho da Fonte (%) <span id="font-scale-v">100</span>%</label>
+      <input id="font-scale" type="range" min="50" max="200" value="100" step="5">
+
       <div class="row">
         <div><label for="bg-color">Fundo</label>
           <input id="bg-color" type="color" value="#0B3D2E"></div>
@@ -289,6 +308,27 @@ function hexRgba(hex, a) {
   return `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${a})`;
 }
 
+/* ============= CARREGAMENTO DE FONTES ============= */
+function loadGoogleFont(family) {
+  return new Promise((resolve) => {
+    const id = 'gf-' + family.replace(/\s+/g, '-').toLowerCase();
+    if (document.getElementById(id)) {
+      // Já foi adicionado; apenas garante o carregamento
+      document.fonts.load(`600 16px "${family}"`).then(() => resolve());
+      return;
+    }
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@400;600;700&display=swap`;
+    link.onload = () => {
+      document.fonts.load(`600 16px "${family}"`).then(() => resolve());
+    };
+    link.onerror = () => resolve(); // falha silenciosa
+    document.head.appendChild(link);
+  });
+}
+
 /* ============= STORAGE (IndexedDB) ============= */
 const DB_NAME='et-db', DB_VER=1;
 let dbP=null;
@@ -367,6 +407,8 @@ async function clearAll() {
 /* ============= SETTINGS ============= */
 const DEFAULTS = Object.freeze({
   aspectRatio: '4:3',
+  fontFamily: 'Inter',
+  fontScale: 100,
   logoEnabled: true, logoSizePercent: 15, logoMarginPercent: 3,
   stampEnabled: true, defaultCaption: '',
   stampBgColor: '#0B3D2E', stampTextColor: '#FFFFFF',
@@ -416,6 +458,7 @@ function applyLiveStyles() {
   root.setProperty('--stamp-color', settings.stampTextColor);
   root.setProperty('--stamp-radius', settings.stampRadius + 'px');
   root.setProperty('--stamp-max-width', settings.stampMaxWidthPercent + 'vw');
+  root.setProperty('--stamp-font', `"${settings.fontFamily}"`);
   const targetVw = Math.max(8, Math.min(40, settings.logoSizePercent * 1.5));
   root.setProperty('--logo-size', targetVw + 'vw');
   const stamp = $('#caption');
@@ -481,10 +524,14 @@ function drawStamp(ctx, W, H, text) {
   const padY = Math.max(6, W * 0.015);
   const maxW = Math.min(W * (settings.stampMaxWidthPercent/100), W - margin*2);
   const innerMaxW = maxW - padX*2;
-  const fontStr = s => `600 ${s}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  
+  const family = settings.fontFamily || 'Inter';
+  const scale = (settings.fontScale || 100) / 100;
+  const fontStr = s => `600 ${s}px "${family}", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
   const lh = 1.35;
-  let fs = Math.max(10, Math.round(W*0.028));
-  const minFs = Math.max(10, Math.round(W*0.012));
+  
+  let fs = Math.max(10, Math.round(W * 0.028 * scale));
+  const minFs = Math.max(10, Math.round(W * 0.012 * scale));
 
   const wrap = (fontSize) => {
     ctx.font = fontStr(fontSize);
@@ -645,7 +692,7 @@ let facing = 'environment';
 let mediaRecorder = null;
 let recordedChunks = [];
 let videoMime = '';
-let videoAnimFrameId = null; // <--- NOVO: Controle do loop de animação para gravação de vídeo
+let videoAnimFrameId = null;
 
 async function startCamera() {
   stopCamera();
@@ -677,7 +724,7 @@ async function startCamera() {
 function stopCamera() {
   if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   const v = $('#preview'); if (v) v.srcObject = null;
-  if (videoAnimFrameId) { cancelAnimationFrame(videoAnimFrameId); videoAnimFrameId = null; } // <--- NOVO: Limpa o loop
+  if (videoAnimFrameId) { cancelAnimationFrame(videoAnimFrameId); videoAnimFrameId = null; }
 }
 async function switchCamera() {
   facing = facing === 'environment' ? 'user' : 'environment';
@@ -713,9 +760,6 @@ async function takePhoto() {
   }
 }
 
-/* ========================================================= */
-/* CORREÇÃO 2: Gravação de Vídeo com Estampa usando Canvas */
-/* ========================================================= */
 async function toggleVideoRecording() {
   const btn = $('#btn-video');
   if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -729,17 +773,14 @@ async function toggleVideoRecording() {
 
   if (!stream) return;
   try {
-    // 1. Obter áudio (se disponível)
     const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }).catch(() => null);
     
-    // 2. Configurar Canvas de Gravação
     const videoEl = $('#preview');
     let targetAR = 4/3;
     if (settings.aspectRatio === '16:9') targetAR = 16/9;
     else if (settings.aspectRatio === '9:16') targetAR = 9/16;
     else if (settings.aspectRatio === '1:1') targetAR = 1;
 
-    // Base de resolução para vídeo (HD)
     let targetW = 1280;
     let targetH = 720;
     if (targetAR < 1) { targetW = 720; targetH = Math.round(720 / targetAR); }
@@ -750,13 +791,11 @@ async function toggleVideoRecording() {
     canvas.height = targetH;
     const ctx = canvas.getContext('2d');
 
-    // 3. Função de desenho contínuo
     const drawVideoFrame = () => {
       if (videoEl.readyState >= 2) {
         const vw = videoEl.videoWidth;
         const vh = videoEl.videoHeight;
         
-        // Desenha o vídeo com "cover" (cortando bordas para manter a proporção)
         const vr = vw / vh;
         let dx = 0, dy = 0, dw = targetW, dh = targetH;
         
@@ -768,7 +807,6 @@ async function toggleVideoRecording() {
         
         ctx.drawImage(videoEl, dx, dy, dw, dh);
 
-        // Desenhar Logomarca
         if (settings.logoEnabled && logoURL) {
           const img = new Image();
           img.src = logoURL;
@@ -780,7 +818,6 @@ async function toggleVideoRecording() {
           }
         }
 
-        // Desenhar Estampa de Texto
         if (settings.stampEnabled) {
           let text = ($('#caption').innerText || '').trim();
           if (settings.includeDateTime) {
@@ -795,14 +832,12 @@ async function toggleVideoRecording() {
     };
     drawVideoFrame();
 
-    // 4. Capturar o stream do Canvas
-    const canvasStream = canvas.captureStream(30); // 30 FPS
+    const canvasStream = canvas.captureStream(30);
     const tracks = [...canvasStream.getVideoTracks()];
     
     if (audioStream) tracks.push(...audioStream.getAudioTracks());
     const combined = new MediaStream(tracks);
 
-    // 5. Iniciar MediaRecorder com o stream composto
     recordedChunks = [];
     videoMime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
     mediaRecorder = new MediaRecorder(combined, { mimeType: videoMime });
@@ -815,7 +850,6 @@ async function toggleVideoRecording() {
       const blob = new Blob(recordedChunks, { type: videoMime });
       showReview(blob, true);
       setStatus('Câmera pronta');
-      // Limpeza
       if (audioStream) audioStream.getTracks().forEach(t => t.stop());
       canvasStream.getTracks().forEach(t => t.stop());
       canvas.width = 0; canvas.height = 0;
@@ -843,15 +877,14 @@ function showReview(blob, isVideo) {
   const img = $('#review-img');
   const vid = $('#review-video');
 
-  // Lógica para exibir APENAS um dos dois
   if (isVideo) {
     img.hidden = true;
-    img.src = ''; // Limpa o src da imagem
+    img.src = '';
     vid.hidden = false;
     vid.src = reviewURL;
   } else {
     vid.hidden = true;
-    vid.src = ''; // Limpa o src do vídeo
+    vid.src = '';
     img.hidden = false;
     img.src = reviewURL;
   }
@@ -901,6 +934,9 @@ async function share() {
 /* ============= SETTINGS UI ============= */
 function syncForm() {
   $('#aspect-ratio').value = settings.aspectRatio || '4:3';
+  $('#font-family').value = settings.fontFamily || 'Inter';
+  $('#font-scale').value = settings.fontScale || 100;
+  $('#font-scale-v').textContent = settings.fontScale || 100;
   $('#logo-size').value = settings.logoSizePercent;
   $('#logo-size-v').textContent = settings.logoSizePercent;
   $('#logo-margin').value = settings.logoMarginPercent;
@@ -933,6 +969,8 @@ function syncForm() {
 function collectForm() {
   return {
     aspectRatio: $('#aspect-ratio').value,
+    fontFamily: $('#font-family').value,
+    fontScale: +$('#font-scale').value,
     logoEnabled: $('#logo-enabled').checked,
     logoSizePercent: +$('#logo-size').value,
     logoMarginPercent: +$('#logo-margin').value,
@@ -971,8 +1009,10 @@ function drawPreview() {
 function previewStamp(ctx, W, H, s) {
   if (!s.stampEnabled) return;
   const txt = (s.defaultCaption || 'Descrição de exemplo').trim();
-  const fs = Math.max(9, Math.round(W*0.032));
-  ctx.font = `600 ${fs}px system-ui,sans-serif`;
+  const family = s.fontFamily || 'Inter';
+  const scale = (s.fontScale || 100) / 100;
+  const fs = Math.max(9, Math.round(W * 0.032 * scale));
+  ctx.font = `600 ${fs}px "${family}", system-ui,sans-serif`;
   const pad = W*0.025;
   const maxW = W*(s.stampMaxWidthPercent/100);
   const mw = Math.min(maxW, ctx.measureText(txt).width + pad*2);
@@ -996,6 +1036,8 @@ function previewStamp(ctx, W, H, s) {
 /* ============= BOOTSTRAP ============= */
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
+  // Carrega a fonte inicial salva
+  await loadGoogleFont(settings.fontFamily || 'Inter');
   syncForm();
   if (settings.defaultCaption) {
     $('#caption').textContent = settings.defaultCaption;
@@ -1004,7 +1046,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#caption').setAttribute('data-empty', 'true');
   }
 
-  // Bindings de Câmera
   $('#btn-photo').addEventListener('click', takePhoto);
   $('#btn-video').addEventListener('click', toggleVideoRecording);
   $('#switch-cam').addEventListener('click', switchCamera);
@@ -1034,7 +1075,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   updateCaptionEmpty();
 
-  // Bindings de Configurações
   $('#open-settings').addEventListener('click', () => {
     syncForm();
     $('#settings-panel').classList.add('open');
@@ -1082,7 +1122,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#logo-input').value = '';
     syncForm();
   });
-  ['#aspect-ratio','#logo-size','#logo-margin','#logo-enabled','#default-caption','#bg-color',
+
+  // Ao mudar a fonte, carrega-a antes de atualizar a preview
+  $('#font-family').addEventListener('change', async (e) => {
+    await loadGoogleFont(e.target.value);
+    drawPreview();
+  });
+
+  ['#aspect-ratio','#font-scale','#logo-size','#logo-margin','#logo-enabled','#default-caption','#bg-color',
    '#text-color','#opacity','#maxw','#radius','#stamp-enabled','#include-datetime'
   ].forEach(sel => {
     const el = $(sel);
@@ -1092,11 +1139,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       $('#opacity-v').textContent = $('#opacity').value;
       $('#maxw-v').textContent = $('#maxw').value;
       $('#radius-v').textContent = $('#radius').value;
+      $('#font-scale-v').textContent = $('#font-scale').value;
       drawPreview();
     });
   });
 
-  // Bindings de Revisão
   $('#btn-back-review').addEventListener('click', closeReview);
   $('#discard').addEventListener('click', closeReview);
   $('#download').addEventListener('click', download);
