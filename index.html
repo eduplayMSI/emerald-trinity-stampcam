@@ -33,9 +33,10 @@ header{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;
   padding-top:max(.7rem, env(safe-area-inset-top));
   background:linear-gradient(to bottom,rgba(11,61,46,.78) 0%,rgba(11,61,46,0) 100%);
   color:#fff;pointer-events:none}
-header h1{font-size:1.2rem;margin:0;font-weight:700;letter-spacing:.02em;
+header h1{font-size:1.1rem;margin:0;font-weight:650;letter-spacing:.02em;
   text-shadow:0 1px 4px rgba(0,0,0,.55)}
 .top-right-controls {position: absolute; top: max(0.7rem, env(safe-area-inset-top)); right: 1rem; display: flex; gap: 0.5rem; pointer-events: auto;}
+
 .btn-icon{background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:50%;
   width:44px;height:44px;display:grid;place-items:center;cursor:pointer;
   backdrop-filter:blur(4px); pointer-events: auto;}
@@ -237,7 +238,7 @@ details[open] summary { margin-bottom: 10px; border-bottom: 1px solid #ddd; padd
     <h2>Configurações</h2>
     
     <fieldset>
-      <legend>Captura e Estampa</legend>
+      <legend>Câmera e Captura</legend>
       <label for="aspect-ratio">Proporção da Imagem (Quadro)</label>
       <select id="aspect-ratio">
         <option value="4:3">4:3 (Padrão)</option>
@@ -245,8 +246,34 @@ details[open] summary { margin-bottom: 10px; border-bottom: 1px solid #ddd; padd
         <option value="9:16">9:16 (Vertical)</option>
         <option value="1:1">1:1 (Quadrado)</option>
       </select>
+    </fieldset>
+
+    <fieldset>
+      <legend>Logomarca</legend>
+      <label for="logo-input">Importar (PNG, JPEG, WebP)</label>
+      <input id="logo-input" type="file" accept="image/png,image/jpeg,image/webp">
+      <div class="preview-box">
+        <img id="logo-preview" alt="Prévia" hidden>
+        <button id="remove-logo" class="secondary" style="padding:.4rem .7rem;border-radius:8px;border:1px solid #c9dbd3;background:#fff;cursor:pointer;margin-top:.4rem" hidden>Remover</button>
+      </div>
+      <label>Tamanho (%) <span id="logo-size-v">15</span>%</label>
+      <input id="logo-size" type="range" min="5" max="30" value="15" step="1">
+      <label>Margem (%) <span id="logo-margin-v">3</span>%</label>
+      <input id="logo-margin" type="range" min="1" max="10" value="3" step="0.5">
+      <label><input id="logo-enabled" type="checkbox" checked> Exibir logomarca</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Pré-visualização</legend>
+      <canvas id="preview-canvas" width="400" height="300"></canvas>
+    </fieldset>
+
+    <fieldset>
+      <legend>Estampa de descrição</legend>
+      <label for="default-caption">Texto institucional padrão</label>
+      <input id="default-caption" type="text" maxlength="200" placeholder="Ex.: Associação — Evento 2026">
       
-      <label for="font-family">Tipo de Fonte</label>
+      <label for="font-family">Tipo de Fonte (Google Fonts)</label>
       <select id="font-family">
         <option value="Inter">Inter</option>
         <option value="Roboto">Roboto</option>
@@ -258,20 +285,28 @@ details[open] summary { margin-bottom: 10px; border-bottom: 1px solid #ddd; padd
 
       <label>Tamanho da Fonte (%) <span id="font-scale-v">100</span>%</label>
       <input id="font-scale" type="range" min="50" max="200" value="100" step="5">
-    </fieldset>
 
-    <fieldset>
-      <legend>Logomarca</legend>
-      <input id="logo-input" type="file" accept="image/png,image/jpeg,image/webp">
-      <div class="preview-box">
-        <img id="logo-preview" alt="Prévia" hidden>
-        <button id="remove-logo" class="secondary" style="padding:.4rem .7rem;border-radius:8px;border:1px solid #c9dbd3;background:#fff;cursor:pointer;margin-top:.4rem" hidden>Remover</button>
+      <div class="row">
+        <div><label for="bg-color">Fundo</label>
+          <input id="bg-color" type="color" value="#0B3D2E"></div>
+        <div><label for="text-color">Texto</label>
+          <input id="text-color" type="color" value="#FFFFFF"></div>
       </div>
-      <label>Tamanho (%) <span id="logo-size-v">15</span>%</label>
-      <input id="logo-size" type="range" min="5" max="30" value="15" step="1">
+      
+      <label>Opacidade do fundo (%) <span id="opacity-v">85</span>%</label>
+      <input id="opacity" type="range" min="20" max="100" value="85" step="5">
+      
+      <label>Largura máxima (%) <span id="maxw-v">55</span>%</label>
+      <input id="maxw" type="range" min="30" max="80" value="55" step="5">
+      
+      <label>Raio dos cantos <span id="radius-v">16</span></label>
+      <input id="radius" type="range" min="0" max="40" value="16" step="2">
+      
+      <label><input id="stamp-enabled" type="checkbox" checked> Exibir estampa</label>
+      <label><input id="include-datetime" type="checkbox"> Incluir data e hora</label>
     </fieldset>
 
-    <!-- Novos expansores de controles avançados -->
+    <!-- Controles avançados que se expandem/recolhem -->
     <details>
       <summary>Controles de Câmera (ISO / Exposição)</summary>
       <div class="details-content">
@@ -436,6 +471,16 @@ async function delBlob(k) {
     tx.onerror = () => rej(tx.error);
   });
 }
+async function clearAll() {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(['settings','blobs'],'readwrite');
+    tx.objectStore('settings').clear();
+    tx.objectStore('blobs').clear();
+    tx.oncomplete = () => res(true);
+    tx.onerror = () => rej(tx.error);
+  });
+}
 
 /* ============= SETTINGS STATE ============= */
 const DEFAULTS = Object.freeze({
@@ -463,6 +508,25 @@ async function persist(partial) {
   try { await setSetting('inst', settings); return true; }
   catch(e) { toast('Erro ao salvar.'); return false; }
 }
+async function setLogo(file) {
+  if (!file) return false;
+  const ok = ['image/png','image/jpeg','image/webp'].includes(file.type);
+  if (!ok) { toast('Formato não suportado.'); return false; }
+  if (file.size > 5*1024*1024) { toast('Imagem > 5 MB.'); return false; }
+  try {
+    const u = URL.createObjectURL(file);
+    await loadImage(u); URL.revokeObjectURL(u);
+    if (logoURL) URL.revokeObjectURL(logoURL);
+    await setBlob('logo', file);
+    logoURL = URL.createObjectURL(file);
+    return true;
+  } catch(e) { toast('Imagem inválida.'); return false; }
+}
+async function removeLogo() {
+  try { await delBlob('logo'); } catch(_) {}
+  if (logoURL) URL.revokeObjectURL(logoURL);
+  logoURL = null;
+}
 
 function applyLiveStyles() {
   const root = document.documentElement.style;
@@ -477,6 +541,7 @@ function applyLiveStyles() {
   const video = $('#preview');
   if (video) video.style.filter = settings.filter === 'none' ? '' : settings.filter;
   $('#filter-select-settings').value = settings.filter;
+  if ($('#caption')) $('#caption').hidden = !settings.stampEnabled;
 }
 
 function syncLiveLogo() {
@@ -640,7 +705,6 @@ async function startCamera(deviceId = null) {
     
     v.style.filter = settings.filter === 'none' ? '' : settings.filter;
 
-    // Ocultar mensagem após 10 segundos
     setTimeout(() => {
       const st = $('#status');
       if (st) st.style.opacity = '0';
@@ -920,7 +984,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-/* ============= REVISÃO E UI ============= */
+/* ============= REVISÃO ============= */
 let reviewBlob = null, reviewURL = null, isVideoReview = false;
 function showReview(blob, isVideo) {
   if (reviewURL) URL.revokeObjectURL(reviewURL);
@@ -943,10 +1007,129 @@ function closeReview() {
   const vid = $('#review-video'); vid.pause(); vid.src = '';
 }
 
+function download() {
+  if (!reviewBlob) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(reviewBlob);
+  a.download = `cap_${ts()}.${isVideoReview ? 'webm' : 'jpg'}`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+
+/* ============= SETTINGS UI ============= */
+function syncForm() {
+  $('#aspect-ratio').value = settings.aspectRatio || '4:3';
+  $('#font-family').value = settings.fontFamily || 'Inter';
+  $('#font-scale').value = settings.fontScale || 100;
+  $('#font-scale-v').textContent = settings.fontScale || 100;
+  
+  $('#logo-size').value = settings.logoSizePercent;
+  $('#logo-size-v').textContent = settings.logoSizePercent;
+  $('#logo-margin').value = settings.logoMarginPercent;
+  $('#logo-margin-v').textContent = settings.logoMarginPercent;
+  $('#logo-enabled').checked = !!settings.logoEnabled;
+  
+  $('#default-caption').value = settings.defaultCaption || '';
+  $('#bg-color').value = settings.stampBgColor;
+  $('#text-color').value = settings.stampTextColor;
+  $('#opacity').value = Math.round(settings.stampOpacity*100);
+  $('#opacity-v').textContent = Math.round(settings.stampOpacity*100);
+  $('#maxw').value = settings.stampMaxWidthPercent;
+  $('#maxw-v').textContent = settings.stampMaxWidthPercent;
+  $('#radius').value = settings.stampRadius;
+  $('#radius-v').textContent = settings.stampRadius;
+  $('#stamp-enabled').checked = !!settings.stampEnabled;
+  $('#include-datetime').checked = !!settings.includeDateTime;
+  $('#filter-select-settings').value = settings.filter;
+  
+  if (logoURL) {
+    $('#logo-preview').src = logoURL;
+    $('#logo-preview').hidden = false;
+    $('#remove-logo').hidden = false;
+  } else {
+    $('#logo-preview').hidden = true;
+    $('#logo-preview').removeAttribute('src');
+    $('#remove-logo').hidden = true;
+  }
+  
+  syncLiveLogo();
+  applyLiveStyles();
+  drawPreview();
+}
+
+function collectForm() {
+  return {
+    aspectRatio: $('#aspect-ratio').value,
+    fontFamily: $('#font-family').value,
+    fontScale: +$('#font-scale').value,
+    logoEnabled: $('#logo-enabled').checked,
+    logoSizePercent: +$('#logo-size').value,
+    logoMarginPercent: +$('#logo-margin').value,
+    stampEnabled: $('#stamp-enabled').checked,
+    defaultCaption: $('#default-caption').value.trim(),
+    stampBgColor: $('#bg-color').value,
+    stampTextColor: $('#text-color').value,
+    stampOpacity: +$('#opacity').value/100,
+    stampMaxWidthPercent: +$('#maxw').value,
+    stampRadius: +$('#radius').value,
+    includeDateTime: $('#include-datetime').checked,
+    filter: $('#filter-select-settings').value
+  };
+}
+
+function drawPreview() {
+  const c = $('#preview-canvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const g = ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,'#9EC9B4'); g.addColorStop(1,'#4E8F74');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  const s = collectForm();
+  if (s.logoEnabled && logoURL) {
+    const im = new Image();
+    im.onload = () => {
+      const tw = W*(s.logoSizePercent/100);
+      const th = tw*(im.naturalHeight/im.naturalWidth);
+      const m = W*(s.logoMarginPercent/100);
+      ctx.drawImage(im, W-tw-m, m, tw, th);
+      previewStamp(ctx, W, H, s);
+    };
+    im.src = logoURL;
+  } else {
+    previewStamp(ctx, W, H, s);
+  }
+}
+
+function previewStamp(ctx, W, H, s) {
+  if (!s.stampEnabled) return;
+  const txt = (s.defaultCaption || 'Descrição de exemplo').trim();
+  const family = s.fontFamily || 'Inter';
+  const scale = (s.fontScale || 100) / 100;
+  const fs = Math.max(9, Math.round(W * 0.032 * scale));
+  ctx.font = `600 ${fs}px "${family}", system-ui,sans-serif`;
+  const pad = W*0.025;
+  const maxW = W*(s.stampMaxWidthPercent/100);
+  const mw = Math.min(maxW, ctx.measureText(txt).width + pad*2);
+  const bh = fs*1.8 + pad;
+  const x = W*0.04, y = H-bh-H*0.04;
+  ctx.save();
+  ctx.fillStyle = hexRgba(s.stampBgColor, s.stampOpacity);
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, mw, bh, s.stampRadius);
+  else ctx.rect(x, y, mw, bh);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.fillStyle = s.stampTextColor;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(txt.length>28 ? txt.slice(0,27)+'…' : txt, x+pad, y+bh/2);
+  ctx.restore();
+}
+
 /* ============= BOOTSTRAP ============= */
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await loadGoogleFont(settings.fontFamily || 'Inter');
+  syncForm();
   
   if (settings.defaultCaption) {
     $('#caption').textContent = settings.defaultCaption;
@@ -955,18 +1138,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('#caption').setAttribute('data-empty', 'true');
   }
 
-  // UI Preenchimento
-  $('#aspect-ratio').value = settings.aspectRatio;
-  $('#font-family').value = settings.fontFamily;
-  $('#font-scale').value = settings.fontScale;
-  $('#logo-size').value = settings.logoSizePercent;
-  $('#filter-select-settings').value = settings.filter;
-  if (logoURL) { $('#logo-preview').src = logoURL; $('#logo-preview').hidden = false; $('#remove-logo').hidden = false; }
-  
-  applyLiveStyles();
+  // Inicializar gestos de zoom e swipe
   setupGestures();
 
-  // Eventos
+  // Bindings de Câmera
   $('#btn-photo').addEventListener('click', takePhoto);
   $('#btn-video').addEventListener('click', toggleVideoRecording);
   $('#btn-switch-cam').addEventListener('click', () => {
@@ -977,25 +1152,56 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#btn-open-camera-menu').addEventListener('click', () => {
     $('#camera-menu').classList.toggle('open');
   });
+  
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#btn-open-camera-menu') && !e.target.closest('#camera-menu')) {
       $('#camera-menu').classList.remove('open');
     }
   });
 
-  $('#open-settings').addEventListener('click', () => $('#settings-panel').classList.add('open'));
+  const captionEl = $('#caption');
+  function updateCaptionEmpty() {
+    if (captionEl.textContent.trim()) captionEl.removeAttribute('data-empty');
+    else captionEl.setAttribute('data-empty', 'true');
+  }
+  captionEl.addEventListener('input', () => {
+    const len = captionEl.innerText.length;
+    if (len > 200) {
+      captionEl.innerText = captionEl.innerText.slice(0, 200);
+      const r = document.createRange();
+      r.selectNodeContents(captionEl);
+      r.collapse(false);
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+    updateCaptionEmpty();
+  });
+  captionEl.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text.slice(0, 200));
+  });
+  updateCaptionEmpty();
+
+  // Bindings de Configurações
+  $('#open-settings').addEventListener('click', () => {
+    syncForm();
+    $('#settings-panel').classList.add('open');
+  });
+  
   $('#close-settings').addEventListener('click', () => $('#settings-panel').classList.remove('open'));
   
   $('#save-settings').addEventListener('click', async () => {
-    const p = {
-      aspectRatio: $('#aspect-ratio').value,
-      fontFamily: $('#font-family').value,
-      fontScale: +$('#font-scale').value,
-      logoSizePercent: +$('#logo-size').value,
-      filter: $('#filter-select-settings').value
-    };
-    if (await persist(p)) {
-      toast('Salvo!');
+    const ok = await persist(collectForm());
+    if (ok) {
+      toast('Configurações salvas.');
+      const cur = captionEl.innerText.trim();
+      if (settings.defaultCaption && !cur) {
+        captionEl.textContent = settings.defaultCaption;
+        captionEl.removeAttribute('data-empty');
+      }
+      syncLiveLogo();
       applyLiveStyles();
       $('#settings-panel').classList.remove('open');
     }
@@ -1008,30 +1214,65 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   $('#logo-input').addEventListener('change', async ev => {
-    const file = ev.target.files[0];
-    if (file) {
-      const u = URL.createObjectURL(file);
-      await loadImage(u);
-      URL.revokeObjectURL(u);
-      await setBlob('logo', file);
-      if (logoURL) URL.revokeObjectURL(logoURL);
-      logoURL = URL.createObjectURL(file);
-      $('#logo-preview').src = logoURL; $('#logo-preview').hidden = false; $('#remove-logo').hidden = false;
-      syncLiveLogo();
+    const f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    if (await setLogo(f)) {
+      syncForm();
+      toast('Logomarca importada. Salve para aplicar.');
+    }
+  });
+  
+  $('#remove-logo').addEventListener('click', async () => {
+    await removeLogo();
+    $('#logo-input').value = '';
+    syncForm();
+  });
+
+  $('#font-family').addEventListener('change', async (e) => {
+    await loadGoogleFont(e.target.value);
+    drawPreview();
+  });
+
+  ['#aspect-ratio','#font-scale','#logo-size','#logo-margin','#logo-enabled','#default-caption','#bg-color',
+   '#text-color','#opacity','#maxw','#radius','#stamp-enabled','#include-datetime'
+  ].forEach(sel => {
+    const el = $(sel);
+    if(el) {
+      el.addEventListener('input', () => {
+        if($('#logo-size-v')) $('#logo-size-v').textContent = $('#logo-size').value;
+        if($('#logo-margin-v')) $('#logo-margin-v').textContent = $('#logo-margin').value;
+        if($('#opacity-v')) $('#opacity-v').textContent = $('#opacity').value;
+        if($('#maxw-v')) $('#maxw-v').textContent = $('#maxw').value;
+        if($('#radius-v')) $('#radius-v').textContent = $('#radius').value;
+        if($('#font-scale-v')) $('#font-scale-v').textContent = $('#font-scale').value;
+        drawPreview();
+      });
     }
   });
 
-  $('#discard').addEventListener('click', closeReview);
   $('#btn-back-review').addEventListener('click', closeReview);
-  $('#download').addEventListener('click', () => {
-    if (!reviewBlob) return;
-    const a = document.createElement('a'); a.href = URL.createObjectURL(reviewBlob);
-    a.download = `cap_${ts()}.${isVideoReview ? 'webm' : 'jpg'}`;
-    a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-  });
+  $('#discard').addEventListener('click', closeReview);
+  $('#download').addEventListener('click', download);
 
   await startCamera();
 });
+
+window.addEventListener('pagehide', () => {
+    stopCamera();
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    if (videoAnimFrameId) { cancelAnimationFrame(videoAnimFrameId); videoAnimFrameId = null; }
+});
+
+/* ============= SERVICE WORKER ============= */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', {scope: './'})
+      .then(reg => console.log('[SW] registrado:', reg.scope))
+      .catch(err => console.warn('[SW] falha:', err));
+  });
+}
 </script>
 </body>
 </html>
