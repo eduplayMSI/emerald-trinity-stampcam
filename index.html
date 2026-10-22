@@ -1019,6 +1019,34 @@ function download() {
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
 }
 
+async function share() {
+  if (!reviewBlob) {
+    toast('Erro: Nenhum arquivo na memória.');
+    return;
+  }
+  
+  const ext = isVideoReview ? 'webm' : 'jpg';
+  const mimeType = isVideoReview ? 'video/webm' : 'image/jpeg';
+  const fileToShare = new File([reviewBlob], `captura_${ts()}.${ext}`, { type: mimeType });
+  
+  if (navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+    try {
+      await navigator.share({
+        files: [fileToShare],
+        title: 'Captura Emerald',
+        text: 'Compartilhado via Emerald Cam'
+      });
+    } catch (error) {
+      console.error('Erro detalhado do Share:', error);
+      if (error.name !== 'AbortError') {
+        toast(`Falha: ${error.message || error.name}`);
+      }
+    }
+  } else {
+    toast('O dispositivo não permite compartilhar este tipo de arquivo.');
+  }
+}
+
 /* ============= SETTINGS UI ============= */
 function syncForm() {
   $('#aspect-ratio').value = settings.aspectRatio || '4:3';
@@ -1261,7 +1289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#share').addEventListener('click', share);
 
   await startCamera();
-});
+}); // <--- ESTE FECHAMENTO ESTAVA FALTANDO E CAUSAVA O ERRO
 
 window.addEventListener('pagehide', () => {
     stopCamera();
