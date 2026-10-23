@@ -65,7 +65,7 @@ main{position:fixed;inset:0}
   border-radius:var(--stamp-radius,14px);
   border:1px solid rgba(255,255,255,.35);
   font-family:var(--stamp-font,'Inter'), system-ui, sans-serif;
-  font-size:.9rem;font-weight:600;line-height:1.35;
+    font-size: var(--stamp-font-size, .9rem); font-weight:600; line-height:1.35;
   backdrop-filter:blur(6px);
   white-space:pre-wrap;
   overflow-wrap:break-word;
@@ -535,6 +535,12 @@ function applyLiveStyles() {
   root.setProperty('--stamp-radius', settings.stampRadius + 'px');
   root.setProperty('--stamp-max-width', settings.stampMaxWidthPercent + 'vw');
   root.setProperty('--stamp-font', `"${settings.fontFamily}"`);
+  
+  // NOVO: Cálculo do tamanho da fonte baseado na escala
+  const baseFontSize = 0.9;
+  const scale = (settings.fontScale || 100) / 100;
+  root.setProperty('--stamp-font-size', (baseFontSize * scale) + 'rem');
+
   const targetVw = Math.max(8, Math.min(40, settings.logoSizePercent * 1.5));
   root.setProperty('--logo-size', targetVw + 'vw');
   
@@ -1250,7 +1256,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('#close-settings').addEventListener('click', () => $('#settings-panel').classList.remove('open'));
   
   $('#save-settings').addEventListener('click', async () => {
-    const ok = await persist(collectForm());
+    const formData = collectForm();
+    
+    // NOVO: Força o carregamento da nova fonte antes de salvar e aplicar
+    await loadGoogleFont(formData.fontFamily);
+    
+    const ok = await persist(formData);
     if (ok) {
       toast('Configurações salvas.');
       const cur = captionEl.innerText.trim();
